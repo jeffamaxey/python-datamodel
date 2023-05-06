@@ -21,7 +21,7 @@ print(is_dataclass(user))
 print(type(user.signup_ts), user.signup_ts)
 
 def create_user():
-    for i in range(100):
+    for _ in range(100):
         external_data = {'id': '123', 'signup_ts': '2017-06-01 12:22', 'friends': [1, '2', b'3']}
         user = User(**external_data)
 
@@ -51,7 +51,7 @@ print(is_dataclass(user))
 print(type(user.signup_ts), user.signup_ts)
 
 def create_user2():
-    for i in range(100):
+    for _ in range(100):
         external_data = {'id': '123', 'signup_ts': '2017-06-01 12:22', 'friends': [1, '2', b'3']}
         user = NewUser(**external_data)
 

@@ -31,7 +31,7 @@ animals = [
 def test_animals():
     assert all(is_dataclass(a) for a in animals)
     assert all(isinstance(a, Animal) for a in animals)
-    assert all(isinstance(a, Mammal) or isinstance(a, Snake) for a in animals)
+    assert all(isinstance(a, (Mammal, Snake)) for a in animals)
     assert animals[0].trunk_length == 176
     assert animals[1].height == 389
     assert animals[2].length == 210

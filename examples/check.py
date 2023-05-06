@@ -46,13 +46,8 @@ class User(BaseModel):
 # Error on empy user:
 try:
     u = User(firstname='Jesus', lastname='Lara', birth='Egg')
-except ValidationError as ex:
+except (ValidationError, TypeError, ValueError) as ex:
     print(ex)
-except TypeError as ex:
-    print(ex)
-except ValueError as ex:
-    print(ex)
-
 ### creates a new user:
 try:
     jesus = User(
@@ -66,11 +61,8 @@ except ValidationError as ex:
 # try to adding a missing keyword:
 try:
     jesus = User(airport=True)
-except ValidationError as ex:
+except (ValidationError, TypeError) as ex:
     print(ex)
-except TypeError as ex:
-    print(ex)
-
 class Animal(BaseModel):
     name: str
     specie: str
@@ -85,7 +77,5 @@ try:
 except ValidationError as ex:
     print(ex)
     print(ex.payload)
-except TypeError as ex:
-    print(ex)
-except ValueError as ex:
+except (TypeError, ValueError) as ex:
     print(ex)

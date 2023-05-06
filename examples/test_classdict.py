@@ -13,14 +13,10 @@ data = {
 def to_field_list(obj) -> list:
     if obj is None:
         return []
-    if isinstance(obj, str):
-        return [x.strip() for x in obj.split(',')]
-    return obj
+    return [x.strip() for x in obj.split(',')] if isinstance(obj, str) else obj
 
 def empty_dict(obj) -> dict:
-    if obj is None:
-        return {}
-    return obj
+    return {} if obj is None else obj
 
 class QueryObject(ClassDict):
     """Base Class for all options passed to Parsers.
