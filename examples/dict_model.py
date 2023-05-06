@@ -29,12 +29,12 @@ class QObject(Model):
     query_raw: str
 
 def create_dicts():
-    for i in range(100):
+    for _ in range(100):
         QueryObject(name='Test', source='source', driver='driver', conditions={"filterdate": "CURRENT_DATE"}, where_cond={"is_open", True})
 
 
 def create_models():
-    for i in range(100):
+    for _ in range(100):
         QObject(name='Test', source='source', driver='driver', conditions={"filterdate": "CURRENT_DATE"}, where_cond={"is_open", True})
 
 

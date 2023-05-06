@@ -87,7 +87,7 @@ def test_accounts():
     assert isinstance(user.accounts[0], Account)
     assert is_dataclass(user.accounts[0])
     for account in user.accounts:
-        if account.provider == 'twilio':
-            assert account.phone == "+343317871"
         if account.provider == 'jabber':
             assert account.address == "jesuslara@jesuslara.com"
+        elif account.provider == 'twilio':
+            assert account.phone == "+343317871"

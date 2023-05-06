@@ -79,21 +79,17 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
             name (str): name of the field
             value (Any): value to be assigned.
         """
-        if name not in self.__columns__:
-            if name != '__errors__' and self.Meta.strict is False: # can be created new Fields
-                self.create_field(name, value)
-        else:
+        if name in self.__columns__:
             setattr(self, name, value)
 
+        elif name != '__errors__' and self.Meta.strict is False: # can be created new Fields
+            self.create_field(name, value)
+
     def _calculate_value(self, key: str, value: Any, f: Field) -> None:
-        if 'encoder' in f.metadata:
-            encoder = f.metadata['encoder']
-        else:
-            encoder = None
+        encoder = f.metadata['encoder'] if 'encoder' in f.metadata else None
         ### start checking:
         if hasattr(f, 'default') and self.is_callable(value):
             return
-        ### Factory Value:
         elif isinstance(f.type, types.MethodType):
             raise ValueError(
                 f"DataModel: Wrong Type declared for Column {key}: {f.type}"
@@ -107,15 +103,13 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
                 new_val = f.type(**value)
             elif isinstance(value, list):
                 new_val = f.type(*value)
+            elif isinstance(value, (int, str, UUID)):
+                new_val = value
             else:
-                ## if value is scalar
-                if isinstance(value, (int, str, UUID)):
+                try:
+                    new_val = f.type(value)
+                except (ValueError, AttributeError, TypeError):
                     new_val = value
-                else:
-                    try:
-                        new_val = f.type(value)
-                    except (ValueError, AttributeError, TypeError):
-                        new_val = value
             setattr(self, key, new_val)
         else:
             try:
@@ -172,8 +166,7 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
             errors = {}
             try:
                 value = getattr(self, f.name)
-                error = self._validation(name, value, f)
-                if error:
+                if error := self._validation(name, value, f):
                     errors[name] = error
             except RuntimeError as err:
                 logging.exception(err)
@@ -203,15 +196,12 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
         return callable(value) if not is_missing and is_function else False
 
     def is_empty(self, value) -> bool:
-        if isinstance(value, _MISSING_TYPE):
-            return True
-        elif (value == _MISSING_TYPE):
-            return True
-        elif value is None:
-            return True
-        elif str(value) == '':
-            return True
-        return False
+        return (
+            isinstance(value, _MISSING_TYPE)
+            or (value == _MISSING_TYPE)
+            or value is None
+            or not str(value)
+        )
 
 
     def _validation(self, name: str, value: Any, f: Field) -> Optional[Any]:
@@ -246,38 +236,37 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
                 new_val = None
             setattr(self, name, new_val)
             value = new_val
-        # first: check primary and required:
-        if val_type == type or value == annotated_type or self.is_empty(value):
-            try:
-                if f.metadata['primary'] is True:
-                    if 'db_default' in f.metadata:
-                        pass
-                    else:
-                        raise ValueError(
-                            f"::{self.modelName}:: Missing Primary Key *{name}*"
-                        )
-            except KeyError:
-                pass
-            try:
-                if f.metadata["required"] is True and self.Meta.strict is True:
-                    # if this has db_default:
-                    if 'db_default' in f.metadata:
-                        return
-                    raise ValueError(
-                        f"::{self.modelName}:: Missing Required Field *{name}*"
-                    )
-            except KeyError:
-                pass
-            try:
-                if f.metadata["nullable"] is False and self.Meta.strict is True:
-                    raise ValueError(
-                        f"::{self.modelName}:: Cannot null *{name}*"
-                    )
-            except KeyError:
-                pass
-        else:
+        if (
+            val_type != type
+            and value != annotated_type
+            and not self.is_empty(value)
+        ):
             # capturing other errors from validator:
             return validator(f, name, value, annotated_type)
+        try:
+            if f.metadata['primary'] is True and 'db_default' not in f.metadata:
+                raise ValueError(
+                    f"::{self.modelName}:: Missing Primary Key *{name}*"
+                )
+        except KeyError:
+            pass
+        try:
+            if f.metadata["required"] is True and self.Meta.strict is True:
+                # if this has db_default:
+                if 'db_default' in f.metadata:
+                    return
+                raise ValueError(
+                    f"::{self.modelName}:: Missing Required Field *{name}*"
+                )
+        except KeyError:
+            pass
+        try:
+            if f.metadata["nullable"] is False and self.Meta.strict is True:
+                raise ValueError(
+                    f"::{self.modelName}:: Cannot null *{name}*"
+                )
+        except KeyError:
+            pass
 
     def get_errors(self):
         return self.__errors__
@@ -446,36 +435,35 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
                     t = 'integer'
                 else:
                     t = 'object'
-            else:
-                if isinstance(_type, EnumMeta):
-                    t = 'array'
-                    enum_type = {
-                        "type": "string",
-                        "enum": list(map(lambda c: c.value, _type))
+            elif isinstance(_type, EnumMeta):
+                t = 'array'
+                enum_type = {
+                    "type": "string",
+                    "enum": list(map(lambda c: c.value, _type))
+                }
+            elif isinstance(_type, ModelMeta):
+                t = 'object'
+                enum_type = None
+                sch = _type.schema(as_dict = True)
+                if 'fk' in field.metadata:
+                    api = field.metadata['api'] if 'api' in field.metadata else sch['table']
+                    fk = field.metadata['fk'].split("|")
+                    ref = {
+                        "api": api,
+                        "id": fk[0],
+                        "value":fk[1]
                     }
-                elif isinstance(_type, ModelMeta):
-                    t = 'object'
-                    enum_type = None
-                    sch = _type.schema(as_dict = True)
-                    if 'fk' in field.metadata:
-                        api = field.metadata['api'] if 'api' in field.metadata else sch['table']
-                        fk = field.metadata['fk'].split("|")
-                        ref = {
-                            "api": api,
-                            "id": fk[0],
-                            "value":fk[1]
-                        }
-                    else:
-                        ref = sch['$id']
-
-                    defs[name] = sch
                 else:
-                    ref = None
-                    enum_type = None
-                    try:
-                        t = JSON_TYPES[_type]
-                    except KeyError:
-                        t = 'string'
+                    ref = sch['$id']
+
+                defs[name] = sch
+            else:
+                ref = None
+                enum_type = None
+                try:
+                    t = JSON_TYPES[_type]
+                except KeyError:
+                    t = 'string'
             ## check of min and max:
             minimum = field.metadata.get('min', None)
             maximum = field.metadata.get('max', None)
@@ -523,10 +511,7 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
                     fields[name]['maximum'] = maximum
             if field.metadata['widget']:
                 fields[name]['widget'] = field.metadata['widget']
-        if cls.Meta.strict is True:
-            adp = True
-        else:
-            adp = False
+        adp = cls.Meta.strict is True
         base_schema = {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": f"/schemas/{table}",
@@ -541,7 +526,4 @@ class BaseModel(ModelMixin, metaclass=ModelMeta):
         }
         if defs:
             base_schema["$defs"] = defs
-        if as_dict is True:
-            return base_schema
-        else:
-            return json_encoder(base_schema)
+        return base_schema if as_dict else json_encoder(base_schema)

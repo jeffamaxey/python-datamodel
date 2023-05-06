@@ -21,9 +21,11 @@ class Address:
 
     def __str__(self) -> str:
         """Provides pretty response of address"""
-        lines = [self.street]
-        lines.append(f"{self.city}, {self.zipcode} {self.state}")
-        lines.append(f"{self.country}")
+        lines = [
+            self.street,
+            f"{self.city}, {self.zipcode} {self.state}",
+            f"{self.country}",
+        ]
         return "\n".join(lines)
 
 class Employee(User):

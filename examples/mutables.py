@@ -26,7 +26,7 @@ class QueryObject(ClassDict):
     query_raw: str
 
 def create_objects():
-    for i in range(20):
+    for _ in range(20):
         QueryObject(source='source', driver='driver')
 
 time = timeit.timeit(create_objects, number=10000)

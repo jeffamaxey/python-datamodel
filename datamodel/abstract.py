@@ -44,26 +44,25 @@ def _dc_method_setattr(
             f"Cannot add New attribute {name} on {self.modelName}, "
             "This DataClass is frozen (read-only class)"
         )
-    else:
-        value = None if callable(value) else value
-        object.__setattr__(self, name, value)
-        if name not in self.__fields__:
-            if self.Meta.strict is True:
-                logging.warning(
-                    f"Warning: *{name}* doesn't exists on {self.modelName}"
-                )
-            else:
-                try:
-                    # create a new Field on Model.
-                    f = Field(required=False, default=value)
-                    f.name = name
-                    f.type = type(value)
-                    self.__columns__[name] = f
-                    self.__fields__.append(name)
-                    setattr(self, name, value)
-                except Exception as err:
-                    logging.exception(err, stack_info=True)
-                    raise
+    value = None if callable(value) else value
+    object.__setattr__(self, name, value)
+    if name not in self.__fields__:
+        if self.Meta.strict is True:
+            logging.warning(
+                f"Warning: *{name}* doesn't exists on {self.modelName}"
+            )
+        else:
+            try:
+                # create a new Field on Model.
+                f = Field(required=False, default=value)
+                f.name = name
+                f.type = type(value)
+                self.__columns__[name] = f
+                self.__fields__.append(name)
+                setattr(self, name, value)
+            except Exception as err:
+                logging.exception(err, stack_info=True)
+                raise
 
 
 def create_dataclass(
@@ -111,19 +110,12 @@ class ModelMeta(type):
                         attrs[field] = df
                         setattr(cls, field, df)
                 else:
-                    if strict is False and field not in attrs:
-                        df = Field(type=_type, required=False, default=None)
-                        df.name = field
-                        df.type = _type
-                        cols[field] = df
-                        attrs[field] = df
-                    else:
-                        # add a new field, based on type
-                        df = Field(type=_type, required=False, default=None)
-                        df.name = field
-                        df.type = _type
-                        cols[field] = df
-                        attrs[field] = df
+                    df = Field(type=_type, required=False, default=None)
+                    df.name = field
+                    df.type = _type
+                    cols[field] = df
+                    attrs[field] = df
+                    if strict:
                         setattr(cls, field, df)
             cls.__slots__ = tuple(cols.keys())
         attr_meta = attrs.pop("Meta", None)
@@ -173,10 +165,7 @@ class ModelMeta(type):
 
     def __init__(cls, *args, **kwargs) -> None:
         cls.modelName = cls.__name__
-        if cls.Meta.strict:
-            cls.__frozen__ = cls.Meta.strict
-        else:
-            cls.__frozen__ = False
+        cls.__frozen__ = cls.Meta.strict if cls.Meta.strict else False
         # Initialized Data Model = True
         cls.__initialised__ = True
         cls.__errors__ = None
